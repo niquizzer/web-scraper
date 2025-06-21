@@ -114,9 +114,9 @@ test.update({
 # 5. Export data to csv
 
 #Inputs for the scraper
-inputs = ['h1', 'p']
-
-alt_sites_search = ['https://google.com', 'https://linkedin.com', 'https://facebook.com']
+elements_to_search = ['h1', 'p']
+keywords = ['salary', 'location', 'job title', 'company', 'contact', 'email', 'phone']
+site_keywords = []
 
 recruitment_sources = {
     "linkedin": "linkedin.com/in/",
@@ -146,29 +146,66 @@ def get_html():
         return
     else:
         r = requests.get(url);
-        parse_html(r)
+        parse_html_links(r)
+        parse_html_elements(r)
 
-def parse_html(r):
+def parse_html_links(r):
     html = r.text
     soup = bs4.BeautifulSoup(html, 'html.parser')
     #find specific values
-    result = soup.find_all('jobsearch')
+    result = soup.find_all('a')
 
-    for i in result:
-        print(i.get_text())
+    for link in result:
+        print(link.get('href'))
 
     if result == None:
-        print("No results found")
+        no_url_found()
+
+def parse_html_elements(r):
+    html = r.text
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+    #find specific values
+    result = soup.find_all(elements_to_search)
+
+    if result == None:
+        no_url_found()
+
+    for text in result:
+        print(text.get_text())
+
+    for tag_name in elements_to_search:
+        elements = soup.find_all(tag_name)
+        for element in elements:
+            element_text = soup.get_text()
+            print(element_text)
+
 
 def no_url_found():
+    print("No results found")
 
-    pass
+def add_to_site_keywords(keyword):
+    print('Adding ' + keyword + ' to site keywords')
+    
+
+def check_site_keywords_quality():
+    for keyword in keywords:
+        if keyword in site_keywords:
+            score += 1
+            print("Found " + keyword)
+        else:
+            print("Not found " + keyword)
 
 def search_alt_sites():
-    pass
+    for alt_site in alt_sites_search:
+        alt_site_url = alt_site + job_title + "+" + company_name
+        r = requests.get(alt_site_url)
+        parse_html(r)
 
+        if result == None:
+            no_url_found()
+
+# SMTP check
 def validate_email():
-    #SMTP check
     pass
 
 get_html()
