@@ -1,211 +1,50 @@
 import requests
+import Playwright
 import bs4
-# from validate_email import validate_email
 
-# The problem is we want to build a repeatable scraper
-# that can find a recruiters email address based on the job title
-# and company name.  
-#
-# The inputs is the job title, company name, job location
-# job posting url, and the date of when the job was posted
-#
-# The output is the name, email address, and phone number of the recruiter
-#
-#
+#Indeed 
+#Make this into one list, and put sep file
+known_job_boards = ["google.com", "linkedin.com", "indeed.com", "glassdoor.com", "monster.com"]
+known_application_system = ["workday", "greenhouse", "lever"]
 
-#Edge cases
-test = {
-    'input': {
-        'job title': 'Software Engineer',
-        'company name': 'Google',
-        'job location': 'San Francisco, CA',
-        'job posting url': 'https://careers.google.com/jobs/results/10001270/',
-        'date of posting': '2021-01-01',
-        'application platform': 'indeed',
-        'keywords': ['software engineer', 'google', 'san francisco', 'ca'],
-    },
-    'output': {
-        'name': 'John Doe',
-        'email': 'johndoe@gmail.com',
-        'phone': '555-555-5555',
-        'linkedin': 'linkedin.com/in/johndoe',
-    }
-}
-#Can't find application platform 
-test.update({
-    'input': {
-        'job title': 'Software Engineer',
-        'company name': 'Google',
-        'job location': 'San Francisco, CA',
-        'job posting url': 'https://careers.google.com/jobs/results/10001270/',
-        'date of posting': '2021-01-01',
-        'application platform': 'indeed',
-        'keywords': ['software engineer', 'google', 'san francisco', 'ca'],
-    },
-    'output': {
-        'name': 'John Doe',
-        'email': 'johndoe@gmail.com',
-        'phone': '555-555-5555',
-        'linkedin': 'linkedin.com/in/johndoe',
-    }
-})
-#Missing some inputs
-test.update({
-    'input': {
-        'job title': 'Software Engineer',
-        'company name': '',
-        'job location': 'San Francisco, CA',
-        'job posting url': 'https://careers.google.com/jobs/results/10001270/',
-        'date of posting': '',
-        'application platform': '',
-        'keywords': ['software engineer', 'google', 'san francisco', 'ca'],
-    },
-    'output': {
-        # Maybe find some inputs but not all
-        'name': 'John Doe',
-        'email': 'johndoe@gmail.com',
-        'phone': '',
-        'linkedin': 'linkedin.com/in/johndoe',
-    }
-})
-# No viable inputs
-test.update({
-    'input': {
-        'job title': '',
-        'company name': '',
-        'job location': '',
-        'job posting url': '',
-        'date of posting': '',
-        'application platform': '',
-        'keywords': [''],
-    },
-    'output': 'Information not found'
-})
-# Company name recruiter name found, but no contact info
-test.update({
-    'input': {
-        'job title': '',
-        'company name': 'vanguard',
-        'recruiter name': 'John Doe',
-        'job location': '',
-        'job posting url': '',
-        'date of posting': '',
-        'application platform': '',
-        'keywords': [''],
-    },
-    'output': {
-        #Guessing email based on common formats
-        'Name': 'John Doe',
-        'email': 'johndoe@gmail.com',
-    }
-})
+def parse_url():
+    url = input("Enter the full URL of the job posting: ")
 
-# 1. Get request to website job posting site, parse html for relevant information (company name,
-# job title, location, company url), if we can find the information we need,
-# return the information, otherwise go to the next step
-# 2. Based on inputs, send get requests to other site w/ headless br w/ custom queries
-# using input data. 
-# ---------Some example places: LinkedIn, Google, Indeed, Company website, Facebook
-# 3. Parse the information from the other databases. See if we can find at least name and 
-# contact info.
-# 4. Return the information if found, otherwise skip values not found
-# ---------If we can find the name and company but not the email, we can guess the email
-# by using common formats, then validate that email w/ SMTP check. 
-# 5. Export data to csv
+    # O (n) search
+    for items in known_job_boards:
+        if known_job_boards in url:
+            print("Job board found")
+            company_url = ask_company_url()
+            verify_company_name(company_url)
 
-#Inputs for the scraper
-elements_to_search = ['h1', 'p']
-keywords = ['salary', 'location', 'job title', 'company', 'contact', 'email', 'phone']
-site_keywords = []
-
-recruitment_sources = {
-    "linkedin": "linkedin.com/in/",
-    "google": "google.com/search?q=",
-    "indeed": "indeed.com/jobs?q=",
-    "facebook": "facebook.com/search/top/?q=",
-    "twitter": "twitter.com/search?q=",
-    "instagram": "instagram.com/explore/tags/",
-    "youtube": "youtube.com/results?search_query=",
-    'email_finder_tools': [
-        'https://hunter.io/search?query=',
-        'https://www.emailfinder.io/search?q=',
-        'https://www.findemail.info/search?q=',
-        'https://www.email-checker.net/search?q=',
-        'https://www.email-checker.net/search?q=',
-        'https://clearout.io'
-    ]
-}
-
-def get_html():
-    url = input("Enter a URL: ")
-    value = False
-
-    if url == "":
-        value = False
-        print("Please enter a valid URL")
-        return
-    else:
-        r = requests.get(url);
-        parse_html_links(r)
-        parse_html_elements(r)
-
-def parse_html_links(r):
-    html = r.text
-    soup = bs4.BeautifulSoup(html, 'html.parser')
-    #find specific values
-    result = soup.find_all('a')
-
-    for link in result:
-        print(link.get('href'))
-
-    if result == None:
-        no_url_found()
-
-def parse_html_elements(r):
-    html = r.text
-    soup = bs4.BeautifulSoup(html, 'html.parser')
-    #find specific values
-    result = soup.find_all(elements_to_search)
-
-    if result == None:
-        no_url_found()
-
-    for text in result:
-        print(text.get_text())
-
-    for tag_name in elements_to_search:
-        elements = soup.find_all(tag_name)
-        for element in elements:
-            element_text = soup.get_text()
-            print(element_text)
-
-
-def no_url_found():
-    print("No results found")
-
-def add_to_site_keywords(keyword):
-    print('Adding ' + keyword + ' to site keywords')
-    
-
-def check_site_keywords_quality():
-    for keyword in keywords:
-        if keyword in site_keywords:
-            score += 1
-            print("Found " + keyword)
         else:
-            print("Not found " + keyword)
+            print("Assuming job is on company website")
+            check_main_domain(url)
 
-def search_alt_sites():
-    for alt_site in alt_sites_search:
-        alt_site_url = alt_site + job_title + "+" + company_name
-        r = requests.get(alt_site_url)
-        parse_html(r)
+def check_main_domain(url):
+    verify_company_name()
 
-        if result == None:
-            no_url_found()
+def verify_company_name(n):
+    prompt = input(`Is your company name "${n}"? (y/n)`)
+
+    if prompt == "y":
+        print("Great!")
+        #Send post req to snov.io
+        find_company_contact_info()
+    else:
+        prompt = ask_company_url()
+        verify_company_name(prompt)
+
+def ask_company_url():
+    company_url = input("Please enter the full URL of the MAIN company website (i.e google.com, statefarm.com)  you're applying for:")
+    return company_url
+
+def find_company_contact_info():
+    # Send post request to snov.io
+    pass
 
 # SMTP check
 def validate_email():
     pass
 
-get_html()
+parse_url()
